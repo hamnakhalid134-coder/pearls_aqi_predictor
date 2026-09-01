@@ -1,0 +1,11 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+
+Air_Quality_Data.csv
+Weather_Data.csv
+Complete_AQI_Dataset.csv
+ML_Ready_Data.csv
+
+*.pkl
