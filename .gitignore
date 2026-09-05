@@ -9,3 +9,5 @@ Complete_AQI_Dataset.csv
 ML_Ready_Data.csv
 
 *.pklLatest_AQI_Predictions.csv
+*.pkl
+Latest_AQI_Predictions.csv
