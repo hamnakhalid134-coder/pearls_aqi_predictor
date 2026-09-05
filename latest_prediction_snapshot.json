@@ -1,0 +1,24 @@
+{
+    "city": "Lahore",
+    "source_timestamp": "2026-09-05 21:00:00",
+    "current_aqi": 172,
+    "aqi_24h": 169,
+    "aqi_48h": 161,
+    "aqi_72h": 149,
+    "temperature": 29.6,
+    "humidity": 79.0,
+    "wind_speed": 2.0,
+    "pm2_5": 91.3,
+    "pm10": 105.5,
+    "o3": 37.0,
+    "no2": 104.8,
+    "so2": 22.4,
+    "co": 2912.0,
+    "pressure": 981.7,
+    "precipitation": 0.0,
+    "models": {
+        "24h": "XGBoost",
+        "48h": "Ridge Regression",
+        "72h": "Ridge Regression"
+    }
+}
