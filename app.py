@@ -2,6 +2,7 @@ import os
 import glob
 import joblib
 import requests
+import json
 
 import numpy as np
 import pandas as pd
@@ -587,72 +588,141 @@ def prepare_features(
     ttl=600,
     show_spinner=False
 )
+
+def load_fallback_snapshot():
+
+    filename = "latest_prediction_snapshot.json"
+
+    if not os.path.exists(filename):
+        raise FileNotFoundError(
+            "Fallback snapshot file was not found."
+        )
+
+    with open(filename, "r") as file:
+        snapshot = json.load(file)
+
+    return snapshot
+
+
 def make_predictions():
 
-    latest = get_live_features()
+    try:
+        # ----------------------------------------------------
+        # PRIMARY: HOPSWORKS LIVE PIPELINE
+        # ----------------------------------------------------
 
-    X = latest.drop(
-        columns=[
-            "city",
-            "date_time"
-        ],
-        errors="ignore"
-    )
+        latest = get_live_features()
 
-    model_24 = load_registry_model(
-        "aqi_24h_xgboost"
-    )
-
-    model_48 = load_registry_model(
-        "aqi_48h_ridge"
-    )
-
-    model_72 = load_registry_model(
-        "aqi_72h_ridge"
-    )
-
-    pred_24 = int(
-        round(
-            model_24.predict(
-                prepare_features(
-                    model_24,
-                    X
-                )
-            )[0]
+        X = latest.drop(
+            columns=[
+                "city",
+                "date_time"
+            ],
+            errors="ignore"
         )
-    )
 
-    pred_48 = int(
-        round(
-            model_48.predict(
-                prepare_features(
-                    model_48,
-                    X
-                )
-            )[0]
+        model_24 = load_registry_model(
+            "aqi_24h_xgboost"
         )
-    )
 
-    pred_72 = int(
-        round(
-            model_72.predict(
-                prepare_features(
-                    model_72,
-                    X
-                )
-            )[0]
+        model_48 = load_registry_model(
+            "aqi_48h_ridge"
         )
-    )
 
-    return {
-        "latest": latest,
-        "X": X,
-        "model_24": model_24,
-        "pred_24": pred_24,
-        "pred_48": pred_48,
-        "pred_72": pred_72
-    }
+        model_72 = load_registry_model(
+            "aqi_72h_ridge"
+        )
 
+        pred_24 = int(
+            round(
+                model_24.predict(
+                    prepare_features(
+                        model_24,
+                        X
+                    )
+                )[0]
+            )
+        )
+
+        pred_48 = int(
+            round(
+                model_48.predict(
+                    prepare_features(
+                        model_48,
+                        X
+                    )
+                )[0]
+            )
+        )
+
+        pred_72 = int(
+            round(
+                model_72.predict(
+                    prepare_features(
+                        model_72,
+                        X
+                    )
+                )[0]
+            )
+        )
+
+        return {
+            "latest": latest,
+            "X": X,
+            "model_24": model_24,
+            "pred_24": pred_24,
+            "pred_48": pred_48,
+            "pred_72": pred_72,
+            "fallback_mode": False,
+            "fallback_time": None
+        }
+
+    except Exception as e:
+
+        # ----------------------------------------------------
+        # FALLBACK: LAST SUCCESSFUL SNAPSHOT
+        # ----------------------------------------------------
+
+        snapshot = load_fallback_snapshot()
+
+        latest = pd.DataFrame([
+            {
+                "city": snapshot.get("city", "Lahore"),
+                "date_time": snapshot.get("source_timestamp"),
+                "aqi": snapshot.get("current_aqi"),
+                "temperature": snapshot.get("temperature"),
+                "humidity": snapshot.get("humidity"),
+                "wind_speed": snapshot.get("wind_speed"),
+                "pm2_5": snapshot.get("pm2_5"),
+                "pm10": snapshot.get("pm10"),
+                "o3": snapshot.get("o3"),
+                "no2": snapshot.get("no2"),
+                "so2": snapshot.get("so2"),
+                "co": snapshot.get("co"),
+                "pressure": snapshot.get("pressure"),
+                "precipitation": snapshot.get("precipitation")
+            }
+        ])
+
+        X = latest.drop(
+            columns=[
+                "city",
+                "date_time"
+            ],
+            errors="ignore"
+        )
+
+        return {
+            "latest": latest,
+            "X": X,
+            "model_24": None,
+            "pred_24": int(snapshot["aqi_24h"]),
+            "pred_48": int(snapshot["aqi_48h"]),
+            "pred_72": int(snapshot["aqi_72h"]),
+            "fallback_mode": True,
+            "fallback_time": snapshot.get("source_timestamp"),
+            "fallback_error": str(e)
+        }
 
 # ============================================================
 # RECENT AQI / POLLUTION DATA
@@ -833,6 +903,27 @@ except Exception as error:
     st.stop()
 
 
+
+
+
+
+if output.get("fallback_mode", False):
+
+    fallback_time = output.get("fallback_time")
+
+    try:
+        fallback_time = pd.to_datetime(
+            fallback_time
+        ).strftime("%d %b %Y, %I:%M %p")
+
+    except Exception:
+        fallback_time = "last successful update"
+
+    st.warning(
+        "Fallback mode · Live cloud backend is "
+        "temporarily unavailable. Displaying the "
+        f"last successful model forecast from {fallback_time}."
+    )
 # ============================================================
 # CURRENT VALUES
 # ============================================================
