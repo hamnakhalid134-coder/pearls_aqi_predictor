@@ -10,3 +10,5 @@ hopsworks[python]
 streamlit
 shap
 plotly
+fastapi
+uvicorn
